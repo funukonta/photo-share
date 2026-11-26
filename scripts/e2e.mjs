@@ -1,5 +1,5 @@
-// End-to-end check against a running deployment (local or Sprite).
-//   BASE=https://<sprite>.sprites.app PIN=123456 node deploy/sprite/e2e.mjs
+// End-to-end check against a running deployment.
+//   BASE=https://photos.example.com PIN=123456 node scripts/e2e.mjs
 // Creates a throwaway event, exercises it through the public HTTP API, then deletes the event
 // (which removes every photo it created). Existing events are only read, never changed.
 const BASE = process.env.BASE?.replace(/\/$/, '');

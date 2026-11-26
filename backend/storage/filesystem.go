@@ -13,8 +13,7 @@ import (
 )
 
 // FSObjectStore implements PhotoObjectStore on the local filesystem.
-// It is the default on a Sprite, whose disk is already durable (NVMe cache backed by object storage),
-// so running MinIO there would only add a second process to keep alive.
+// Use it on any host with a durable disk; it avoids running MinIO as a second process.
 type FSObjectStore struct {
 	root string
 }

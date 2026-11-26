@@ -104,8 +104,8 @@ func (im *IdentityManager) setCookie(w http.ResponseWriter, token string) {
 }
 
 // trustedClientIPHeader, when set, names a header written by a trusted reverse proxy that carries the
-// real client IP. On Sprites the first X-Forwarded-For entry is whatever the client sent, so it cannot
-// be trusted for the per-network upload limit or the PIN lockout; Sprite-Client-Ip can.
+// real client IP. The first X-Forwarded-For entry is whatever the client sent, so it cannot be trusted
+// for the per-network upload limit or the PIN lockout; a header the proxy overwrites can.
 var trustedClientIPHeader string
 
 // SetTrustedClientIPHeader configures ExtractClientIP. Call once at startup.

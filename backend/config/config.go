@@ -23,12 +23,12 @@ type Config struct {
 	MaxPhotosPerPerson int
 	MaxPhotosPerIP     int
 	StaticDir          string
-	// StorageBackend selects where photo bytes live: "fs" (local disk, used on Sprites) or "minio".
+	// StorageBackend selects where photo bytes live: "fs" (local disk) or "minio".
 	StorageBackend string
 	// PhotoDir is the root folder for the "fs" storage backend.
 	PhotoDir string
 	// ClientIPHeader names a header set by a trusted proxy that carries the real client IP
-	// ("Sprite-Client-Ip" on Sprites, "Fly-Client-IP" on Fly Machines). Empty means guess from
+	// (for example "X-Real-IP" behind nginx, "CF-Connecting-IP" behind Cloudflare). Empty means guess from
 	// X-Forwarded-For / X-Real-IP / RemoteAddr.
 	ClientIPHeader string
 }

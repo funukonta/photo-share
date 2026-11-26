@@ -6,4 +6,3 @@ backend/data
 data
 *.db
 .env
-.sprite

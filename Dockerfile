@@ -1,4 +1,4 @@
-# Single image: Svelte build + static Go binary. Used by docker-compose.yml (VPS alternative to Sprites).
+# Single image: Svelte build + static Go binary. Used by docker-compose.yml.
 
 FROM node:24-alpine AS frontend
 WORKDIR /src/frontend
