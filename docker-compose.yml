@@ -1,0 +1,55 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: photoshare-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: photoshare-app
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-minio}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-photos}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      SQLITE_PATH: /app/data/photoshare.db
+      DEVICE_SECRET: ${DEVICE_SECRET:?set DEVICE_SECRET in .env (openssl rand -hex 32)}
+      HOST_PIN: ${HOST_PIN:?set HOST_PIN in .env}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+      EVENT_CODE: ${EVENT_CODE:-}
+      EVENT_TITLE: ${EVENT_TITLE:-Graduation Wall 🎓}
+      EVENT_SUBTITLE: ${EVENT_SUBTITLE:-Scan the QR code to drop up to 5 favorite memories on the big screen!}
+      MAX_PHOTOS_PER_PERSON: ${MAX_PHOTOS_PER_PERSON:-5}
+      MAX_PHOTOS_PER_IP: ${MAX_PHOTOS_PER_IP:-150}
+      STATIC_DIR: /app/frontend/dist
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - app_data:/app/data
+
+volumes:
+  minio_data:
+  app_data:
