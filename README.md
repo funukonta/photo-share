@@ -1,171 +1,248 @@
-# photo-share: Graduation Live Photo Wall
+<div align="center">
 
-Guests scan a QR code, send up to 5 photos from their phone, and the photos land live on a projector wall with a
-Polaroid "developing" reveal and floating emoji reactions. One host runs any number of **events**: each has its own
-6-character room code, wall, photos, per-person limit, and album ZIP.
+<img src="frontend/public/polaroid.svg" width="88" alt="" />
 
-| Page | Who | What |
-|---|---|---|
-| `/` | Guests | Type a room code to join an event |
-| `/<room>` | Guests (phones) | Name, then camera or upload, then caption; emoji reactions |
-| `/<room>/wall` | Projector | Live Polaroid wall, spotlight reveal, QR code + room code card |
-| `/admin` | Host (PIN) | List and create events, copy guest links |
-| `/admin/<room>` | Host (PIN) | Event settings, open/close uploads, hide/delete/spotlight photos, reset a phone's limit, album ZIP, delete event |
+# photo-share
 
-Host flow: open `/admin`, create an event, share the guest link (or show `/<room>/wall` on the projector; its QR
-points at `/<room>` and the room code is printed under it).
+**A live Polaroid photo wall for events.**<br/>
+Guests scan a QR code, snap or pick a photo, and it develops on the big screen a second later.
 
-Stack: Go 1.27 (single binary, SQLite via pure-Go `modernc.org/sqlite`), Svelte 5 + Vite + Tailwind 4,
-Server-Sent Events. Photos are stored on local disk (`STORAGE_BACKEND=fs`) or in MinIO (`STORAGE_BACKEND=minio`).
+![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)
+![Svelte](https://img.shields.io/badge/Svelte-5-FF3E00?logo=svelte&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-4-06B6D4?logo=tailwindcss&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-pure_Go-003B57?logo=sqlite&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 
-Build history and design notes: [`doc/`](./doc).
+<img src="doc/screenshots/wall-live.gif" alt="A new photo develops in the spotlight on the wall while emoji reactions float up, then it settles into the grid" width="880" />
 
----
+</div>
 
-## Deploy to a Fly.io Sprite (recommended)
+## How it works
 
-A [Sprite](https://docs.fly.io/sprites/) is a persistent Linux VM that sleeps when idle and wakes on the next
-HTTP request. The app runs as a Sprite **service** (restarted on crash and on every wake), photos and SQLite live
-on the Sprite's durable disk, and the Sprite URL gives you HTTPS. No Docker or MinIO is involved.
+1. The host opens `/admin`, creates an event, and gets a 6-character room code.
+2. The projector shows `/<room>/wall`: a corkboard of Polaroids with a QR code in the corner.
+3. Guests scan the QR, type a name once, take or pick a photo, add a caption, and send.
+4. The new photo dims the room, develops in the spotlight for a few seconds, then pins itself to the wall.
+   Emoji reactions from phones float up the screen in real time.
+5. After the event, the host downloads the album as a ZIP with an offline gallery page inside.
 
-### Prerequisites
+No accounts or app installs. Each phone gets up to 5 photos per event (the host can change the limit).
 
-- The `sprite` CLI, logged in (`sprite login`), and a Sprite selected in this folder (`sprite use <name>`).
-- Go 1.27+ and Node 24+ locally (the script builds here and uploads the result).
+<table>
+  <tr>
+    <td width="50%"><img src="doc/screenshots/wall.jpg" alt="The wall: twelve tilted Polaroids with captions and nicknames, a QR card and a photo counter" /></td>
+    <td width="50%"><img src="doc/screenshots/spotlight.jpg" alt="Spotlight reveal: a new photo shown large in the centre with the caption 'Me before the final review'" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The wall on the projector</sub></td>
+    <td align="center"><sub>A new upload in the spotlight</sub></td>
+  </tr>
+</table>
 
-### Deploy
+<table>
+  <tr>
+    <td width="25%"><img src="doc/screenshots/join.jpg" alt="Phone: join screen with a room code input" /></td>
+    <td width="25%"><img src="doc/screenshots/upload.jpg" alt="Phone: upload flow with name, photo and caption steps, a photo counter and emoji reaction buttons" /></td>
+    <td width="50%"><img src="doc/screenshots/admin.jpg" alt="Host panel: guest link, uploads switch, event settings and a moderation grid with spotlight, hide and delete buttons" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Join by room code</sub></td>
+    <td align="center"><sub>Guided upload on a phone</sub></td>
+    <td align="center"><sub>Host panel for one event</sub></td>
+  </tr>
+</table>
 
-```bash
-./deploy/sprite/deploy.sh                 # uses the sprite from ./.sprite
-./deploy/sprite/deploy.sh my-photo-wall   # or name one
-HOST_PIN=482913 ./deploy/sprite/deploy.sh # choose the admin PIN on the very first deploy
-```
+## Features
 
-The script:
+**On the wall**
+- Polaroid cards with a fixed tilt per photo, handwritten captions, and nicknames
+- Spotlight reveal for every new upload, plus an idle highlight that brings back older photos
+- The grid resizes so every photo fits on screen without scrolling
+- QR code, room code, and a live photo count
+- Keyboard: <kbd>F</kbd> fullscreen, <kbd>P</kbd> pause highlights
 
-1. builds the frontend and a static `linux/amd64` binary,
-2. uploads them to `/home/sprite/photo-share/app` (the previous release is kept in `app.previous`),
-3. on the **first** deploy writes `/home/sprite/photo-share/photo-share.env` with a random `DEVICE_SECRET`
-   and `HOST_PIN` (printed once),
-4. creates or restarts the `photo-share` service on port 8080,
-5. makes the Sprite URL public and runs a health check through it.
+**On the phone**
+- Three steps: name, photo, caption. The name is remembered on the phone
+- In-page camera with front/back switch, or pick from the gallery
+- Photos are resized and compressed in the browser before upload (about 1600 px, JPEG)
+- Emoji reactions that appear on the wall
 
-Re-running it only replaces the app. The database, photos, and env file are never touched.
+**For the host**
+- Any number of events, each with its own room code, wall, limits, and album
+- Live settings: title, subtitle, photos per person, optional event code, uploads open/closed
+- Spotlight, hide, or delete any photo; reset one phone's limit
+- Album ZIP: numbered photos, `memories.json`, and a self-contained `index.html` gallery
 
-### Layout on the Sprite
+**Under the hood**
+- One Go binary serves the API, the live event stream (SSE), and the built frontend
+- SQLite through `modernc.org/sqlite` (no CGO)
+- Photos on local disk or in MinIO
+- Phone identity is an HMAC-signed token, with a per-network ceiling on top
+- Host login with a PIN, signed `HttpOnly` cookie, and lockout after repeated wrong PINs
 
-```
-/home/sprite/photo-share/
-  app/                 current release (binary, dist/, run.sh)
-  app.previous/        last release, for a quick rollback
-  data/photoshare.db   SQLite (settings, photo metadata)
-  data/photos/         uploaded photos
-  photo-share.env      settings and secrets (chmod 600)
-```
+## Quick start
 
-### Everyday commands
-
-```bash
-sprite info                                                      # URL and status
-sprite exec -- tail -f /.sprite/logs/services/photo-share.log    # live logs
-sprite exec -- sprite-env services restart photo-share           # restart after editing the env file
-sprite console                                                   # shell (edit photo-share.env here)
-sprite exec -- grep HOST_PIN /home/sprite/photo-share/photo-share.env   # forgot the PIN
-```
-
-Events are created and edited in `/admin` (title, subtitle, per-person limit, event code, uploads open/closed).
-`MAX_PHOTOS_PER_PERSON` and `MAX_PHOTOS_PER_IP` in the env file are the defaults for new events. If the database
-still has photos from the single-event version, they are moved into one event (titled from the old settings or
-`EVENT_TITLE`) on the first start; the server log prints its room code.
-
-### Backups and rollback
-
-```bash
-sprite checkpoint create --comment "before event"   # snapshot disk (photos + DB + app)
-sprite checkpoint list
-sprite restore v3                                   # roll the whole disk back (destroys later changes)
-```
-
-To roll back only the app: `sprite console`, then
-`cd ~/photo-share && mv app app.bad && mv app.previous app && sprite-env services restart photo-share`.
-
-The album ZIP from `/admin/<room>` is the guest-facing backup: every visible photo of that event,
-`memories.json`, and an offline `index.html`.
-
-### Run of show (event day)
-
-1. **Day before:** deploy, create the event in `/admin`, open `/<room>/wall` on the projector laptop, scan the QR
-   with two phones (Wi-Fi and mobile data), upload, react, hide/delete from `/admin/<room>`, download the ZIP. Then
-   delete the test photos (or delete the test event and create the real one) and take a checkpoint.
-2. **30 minutes before:** open `/<room>/wall` in fullscreen (press **F**). An open wall keeps the Sprite awake, so
-   the first guest never waits for a wake-up.
-3. **During:** moderate from `/admin/<room>` on a phone or second laptop. **P** on the wall pauses highlights.
-   Flip **Uploads open** off when the event ends; the wall stays up.
-4. **After:** download the album ZIP, then `sprite checkpoint create --comment "after event"`.
-   Once the wall closes the Sprite goes back to sleep and stops costing compute.
-
-### Things to know about Sprites
-
-- **The URL is `https://<sprite name>-<org suffix>.sprites.app`**.
-  Custom domains are not supported yet, and a Sprite can't be renamed: for a new name, `sprite create <name>`,
-  copy `~/photo-share/photo-share.env` across, and run `./deploy/sprite/deploy.sh <name>`.
-- **Region is not selectable.** Sprites are placed near whoever created them. Check latency from the venue during
-  the rehearsal.
-- **Some networks block `*.sprites.app`.** A network used during development reset TLS connections to
-  it. Test the venue Wi-Fi and mobile data before the event.
-- **Client IPs** come from the `Sprite-Client-Ip` header (`CLIENT_IP_HEADER` in the env file). The first
-  `X-Forwarded-For` entry is client-controlled and is ignored there. This matters for the per-network upload
-  ceiling and the admin PIN lockout.
-- **Sleep and wake:** an idle Sprite wakes in about 0.1 to 0.5 s (warm) or 1 to 2 s (cold). In-memory state (live
-  connections, PIN lockout counters) resets on a cold wake; everything on disk stays.
-
----
-
-## Alternative: Docker Compose on a VPS (MinIO)
+You need Go 1.27+ and Node 24+.
 
 ```bash
-cp .env.example .env    # set DEVICE_SECRET (openssl rand -hex 32) and HOST_PIN; compose refuses to start without them
-docker compose up -d --build
-```
+git clone https://github.com/funukonta/photo-share.git
+cd photo-share
 
-This starts MinIO plus the app on port 8080. Put a TLS reverse proxy (Caddy, nginx) in front of it and set
-`CLIENT_IP_HEADER` to the header that proxy sets (for example `X-Real-IP`). The host session cookie is marked
-`Secure` when the proxy sends `X-Forwarded-Proto: https`. For disk storage instead of MinIO, set
-`STORAGE_BACKEND=fs` (photos go to `/app/data/photos` in the `app_data` volume).
-
----
-
-## Local development
-
-```bash
-# backend (disk storage, no MinIO needed)
+# terminal 1: API on :8080, photos on local disk
 cd backend && STORAGE_BACKEND=fs HOST_PIN=1234 go run .
 
-# frontend with hot reload, proxying /api to :8080
+# terminal 2: frontend with hot reload on :5173 (proxies /api to :8080)
 cd frontend && npm install && npm run dev
 ```
 
-Tests:
+Open <http://localhost:5173/admin>, log in with `1234`, create an event, and open its wall.
+
+> [!TIP]
+> Phones can't reach `localhost`. Open the wall through your machine's LAN address,
+> or add `?url=http://<your-ip>:8080/` to the wall URL so the QR code points somewhere phones can reach.
+
+## Deploy
+
+photo-share is one binary plus a folder of static files, so it runs on any VPS, home server, or container platform.
+Put it behind HTTPS: the in-page camera only works in a secure context.
+
+### Docker Compose
+
+```bash
+cp .env.example .env
+# set DEVICE_SECRET (openssl rand -hex 32) and HOST_PIN; compose refuses to start without them
+docker compose up -d --build
+```
+
+This starts the app on port 8080 with MinIO for photo storage. To keep photos on disk instead, set
+`STORAGE_BACKEND=fs` in `.env`; photos then go to the `app_data` volume.
+
+### Single binary
+
+```bash
+(cd frontend && npm ci && npm run build)
+(cd backend && CGO_ENABLED=0 go build -o ../photo-share .)
+
+STORAGE_BACKEND=fs \
+PHOTO_DIR=./data/photos \
+SQLITE_PATH=./data/photoshare.db \
+STATIC_DIR=./frontend/dist \
+DEVICE_SECRET=$(openssl rand -hex 32) \
+HOST_PIN=482913 \
+./photo-share
+```
+
+Keep `DEVICE_SECRET` the same between restarts. Changing it resets every phone's identity and logs out the host.
+Run it under systemd, supervisord, or whatever your host uses to keep a process alive.
+
+### Behind a reverse proxy
+
+Any proxy works. Two things to set:
+
+- **Real client IP.** Set `CLIENT_IP_HEADER` to the header your proxy overwrites with the client address
+  (`X-Real-IP` for nginx, `CF-Connecting-IP` for Cloudflare). The first `X-Forwarded-For` entry is
+  client-controlled, so it is not trusted for upload limits or the PIN lockout.
+- **Uploads and streaming.** Allow request bodies up to 15 MB and don't buffer the `/api/rooms/*/events` stream.
+
+<details>
+<summary>Caddy</summary>
+
+```caddyfile
+photos.example.com {
+	reverse_proxy localhost:8080 {
+		header_up X-Real-IP {remote_host}
+	}
+}
+```
+</details>
+
+<details>
+<summary>nginx</summary>
+
+```nginx
+server {
+    server_name photos.example.com;
+    client_max_body_size 15m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;          # live wall updates
+        proxy_read_timeout 1h;
+    }
+}
+```
+</details>
+
+With either, set `CLIENT_IP_HEADER=X-Real-IP`. The host cookie is marked `Secure` when the proxy sends
+`X-Forwarded-Proto: https`.
+
+## Event day checklist
+
+1. **Day before:** create the event, open the wall on the projector laptop, and scan the QR with two phones
+   (venue Wi-Fi and mobile data). Upload, react, hide, delete, and download the ZIP. Then delete the test event and
+   create the real one.
+2. **Before doors open:** open `/<room>/wall` and press <kbd>F</kbd>.
+3. **During:** moderate from `/admin/<room>` on a phone or second laptop. Press <kbd>P</kbd> on the wall to pause
+   highlights. Switch **Uploads open** off when the event ends; the wall stays up.
+4. **After:** download the album ZIP and back up the data folder (`photoshare.db` and `photos/`).
+
+## Configuration
+
+| Variable | Default | Notes |
+|---|---|---|
+| `PORT` | `8080` | |
+| `STORAGE_BACKEND` | `minio` | `fs` (local disk) or `minio` |
+| `PHOTO_DIR` | `./data/photos` | Used by `fs` |
+| `SQLITE_PATH` | `./data/photoshare.db` | |
+| `STATIC_DIR` | `../frontend/dist` | Built frontend |
+| `DEVICE_SECRET` | dev value | Signs phone tokens and host sessions. **Set it in production** |
+| `HOST_PIN` | `2026` | PIN for `/admin`. Empty disables the panel. **Set it in production** |
+| `CLIENT_IP_HEADER` | empty | Header from a trusted proxy with the real client IP |
+| `CORS_ORIGINS` | empty | Comma-separated. Only needed if the frontend is served from another origin |
+| `MAX_PHOTOS_PER_PERSON` | `5` | Default for new events |
+| `MAX_PHOTOS_PER_IP` | `150` | Default per-network ceiling for new events |
+| `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`, `MINIO_USE_SSL` | see [`.env.example`](.env.example) | Only for `STORAGE_BACKEND=minio` |
+| `EVENT_TITLE`, `EVENT_SUBTITLE`, `EVENT_CODE` | see [`.env.example`](.env.example) | Only used when upgrading a database from the single-event version |
+
+## Pages
+
+| URL | Who | What |
+|---|---|---|
+| `/` | Guests | Enter a room code |
+| `/<room>` | Guests | Upload flow and emoji reactions |
+| `/<room>/wall` | Projector | Live wall, QR code, room code |
+| `/admin` | Host | List and create events |
+| `/admin/<room>` | Host | Settings, moderation, album ZIP, delete event |
+
+## Project layout
+
+```
+backend/
+  main.go           server, routing, static files
+  config/           environment settings
+  handlers/         guest API, host API, SSE hub, ZIP export, device identity
+  storage/          SQLite, local-disk and MinIO photo stores
+frontend/
+  src/routes/       Join, Upload, Wall, AdminHome, Admin
+  src/components/   Polaroid, QrCard, EmojiStream, CameraCapture, HostGate
+  src/lib/          API client, SSE client, image compression, wall layout
+scripts/e2e.mjs     end-to-end check against a running server
+doc/                build log: plan and step-by-step notes
+```
+
+## Tests
 
 ```bash
 cd backend && go test ./...
 cd frontend && npm run check && npm run build
-BASE=https://<sprite-url> PIN=<host pin> node deploy/sprite/e2e.mjs   # live end-to-end check on a throwaway event it deletes afterwards
+
+# end-to-end against a running server; creates a throwaway event and deletes it afterwards
+BASE=http://localhost:8080 PIN=1234 node scripts/e2e.mjs
 ```
 
-## Configuration reference
+## Credits
 
-| Variable | Default | Notes |
-|---|---|---|
-| `PORT` | `8080` | Sprites route their URL to 8080 |
-| `STORAGE_BACKEND` | `minio` | `fs` or `minio` (the Sprite env file sets `fs`) |
-| `PHOTO_DIR` | `./data/photos` | Used by `fs` |
-| `SQLITE_PATH` | `./data/photoshare.db` | |
-| `STATIC_DIR` | `../frontend/dist` | Built SPA |
-| `DEVICE_SECRET` | dev value | Signs phone identity tokens and host sessions. Changing it resets every phone's identity |
-| `HOST_PIN` | `2026` | `/admin` PIN. Empty disables the admin panel |
-| `CLIENT_IP_HEADER` | empty | Trusted proxy header with the real client IP |
-| `CORS_ORIGINS` | empty | Only needed if the frontend is served from another origin |
-| `MAX_PHOTOS_PER_PERSON`, `MAX_PHOTOS_PER_IP` | `5`, `150` | Defaults for new events; each event can change them in `/admin/<room>` |
-| `EVENT_TITLE`, `EVENT_SUBTITLE`, `EVENT_CODE` | see `.env.example` | Only used to name the event that photos from the single-event version are moved into |
-| `MINIO_*` | see `.env.example` | Only for `STORAGE_BACKEND=minio` |
+Demo photos in the screenshots are from [Unsplash](https://unsplash.com) via [Lorem Picsum](https://picsum.photos).
